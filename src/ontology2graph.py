@@ -8,7 +8,7 @@ def o2graph(root):
     G.depth = {}
     traverse(G, root, root)
     G = count_graph(G)
-    # nx.write_edgelist(G,'thesis/test/test.edgelist',data=['weight'])
+    # nx.write_edgelist(G,'ontology2vec/test/test.edgelist',data=['weight'])
     return G
 
 def dir_o2graph(root):
@@ -46,7 +46,7 @@ def count_graph(graph):
     G = nx.relabel_nodes(graph, mapping)
     #将对应关系保存为文件
     s = str(mapping).replace(",", "\n")
-    f = open('thesis/test/test_mapping_dict.txt','w')
+    f = open('ontology2vec/test/test_mapping_dict.txt','w')
     f.writelines(s)
     f.close()    
 
