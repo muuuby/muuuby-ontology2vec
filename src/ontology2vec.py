@@ -11,24 +11,18 @@ class Graph():
 
 	def random_walk(self, walk_length, start_node):
 		G = self.G
+		#读取之前产生的采样表
 		alias_nodes = self.alias_nodes
-		alias_edges = self.alias_edges
-
+		# 产生一条序列walk
 		walk = [start_node]
 
 		while len(walk) < walk_length:
 			cur = walk[-1]
 			cur_nbrs = sorted(G.neighbors(cur))
-			if len(cur_nbrs) > 0:
-				if len(walk) == 1:
-					walk.append(cur_nbrs[alias_draw(alias_nodes[cur][0], alias_nodes[cur][1])])
-				else:
-					prev = walk[-2]
-					next = cur_nbrs[alias_draw(alias_edges[(prev, cur)][0], 
-						alias_edges[(prev, cur)][1])]
-					walk.append(next)
-			else:
-				break
+
+			# alias method选择一个相邻结点
+			i = alias_draw(alias_nodes[cur][0], alias_nodes[cur][1])
+			walk.append(cur_nbrs[i])
 
 		return walk
 
@@ -36,83 +30,90 @@ class Graph():
 		G = self.G
 		walks = []
 		nodes = list(G.nodes())
+
 		print 'Walk iteration:'
 		for walk_iter in range(num_walks):
 			print str(walk_iter+1), '/', str(num_walks)
 			random.shuffle(nodes)
 			for node in nodes:
-				walks.append(self.random_walk(walk_length=walk_length, start_node=node))
+				walk = self.random_walk(walk_length=walk_length, start_node=node)
+				walks.append(walk)
 
 		return walks
 
-	def get_alias_edge(self, src, dst):
-		G = self.G
-
-		unnormalized_probs = []
-		for dst_nbr in sorted(G.neighbors(dst)):
-			unnormalized_probs.append(G[dst][dst_nbr]['weight'])
-		norm_const = sum(unnormalized_probs)
-		normalized_probs =  [float(u_prob)/norm_const for u_prob in unnormalized_probs]
-
-		return alias_setup(normalized_probs)
-
 	def transition_probs(self, p):
 		G = self.G
-
 		alias_nodes = {}
+
 		for node in G.nodes():
-			unnormalized_probs = [p*G[node][nbr]['weight'] for nbr in sorted(G.neighbors(node))]
+			neighbor = sorted(G.neighbors(node))
+
+			w_bigger = G[node][neighbor[0]]['weight']
+			w_smaller = G[node][neighbor[0]]['weight']
+			for nbr in sorted(G.neighbors(node)):
+				w = G[node][nbr]['weight']
+				if w > w_bigger:
+					w_bigger = w
+				if w < w_smaller:
+					w_smaller = w
+
+			# 转移到各结点的概率
+			unnormalized_probs = []
+			for nbr in sorted(G.neighbors(node)):
+				w = G[node][nbr]['weight']	#权重
+				if w == w_bigger:
+					unnormalized_probs.append(w*p)
+				else:
+					unnormalized_probs.append(w)
+
+			# 标准化
 			norm_const = sum(unnormalized_probs)
 			normalized_probs =  [float(u_prob)/norm_const for u_prob in unnormalized_probs]
-			alias_nodes[node] = alias_setup(normalized_probs)
 
-		alias_edges = {}
-
-		for edge in G.edges():
-			alias_edges[edge] = self.get_alias_edge(edge[0], edge[1])
-			alias_edges[(edge[1], edge[0])] = self.get_alias_edge(edge[1], edge[0])
+			# 创建每个结点的alias表
+			alias_nodes[node] = alias_table(normalized_probs)
 
 		self.alias_nodes = alias_nodes
-		self.alias_edges = alias_edges
 
 		return
 
 
-def alias_setup(probs):
-
+def alias_table(probs):
+	# 构造alias采样表
 	K = len(probs)
-	q = np.zeros(K)
-	J = np.zeros(K, dtype=np.int)
+	accept = np.zeros(K)
+	alias = np.zeros(K, dtype=np.int)
 
-	smaller = []
-	larger = []
-	for kk, prob in enumerate(probs):
-	    q[kk] = K*prob
-	    if q[kk] < 1.0:
-	        smaller.append(kk)
-	    else:
-	        larger.append(kk)
+	smaller = []	# 小于1的
+	larger = []	#大于1的
+	for i, prob in enumerate(probs):
+		accept[i] = K*prob
+		if accept[i] < 1.0:
+			smaller.append(i)
+		else:
+			larger.append(i)
 
 	while len(smaller) > 0 and len(larger) > 0:
-	    small = smaller.pop()
-	    large = larger.pop()
+		small = smaller.pop()
+		large = larger.pop()
 
-	    J[small] = large
-	    q[large] = q[large] + q[small] - 1.0
-	    if q[large] < 1.0:
-	        smaller.append(large)
-	    else:
-	        larger.append(large)
+		alias[small] = large
+		accept[large] = accept[large] + accept[small] - 1.0
+		 
+		if accept[large] < 1.0:
+			smaller.append(large)
+		else:
+			larger.append(large)
 
-	return J, q
+	return accept, alias
 
-def alias_draw(J, q):
-	K = len(J)
+def alias_draw(accept, alias):
+	K = len(accept)
 
-	kk = int(np.floor(np.random.rand()*K))
-	if np.random.rand() < q[kk]:
-	    return kk
+	# 随机选取第i列
+	i = int(np.floor(np.random.rand()*K))
+	# 产生一个随机数，若小于此列中accept的值，返回列号i，否则返回相补的alias
+	if np.random.rand() < accept[i]:
+	    return i
 	else:
-	    return J[kk]
-
-
+	    return alias[i]
