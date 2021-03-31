@@ -3,26 +3,22 @@ from nltk.corpus import wordnet as wn
 import networkx as nx
 import matplotlib.pyplot as plt
 
-def o2graph(root):
+mapping = {}
+
+def o2graph(root, node_depth):
     G = nx.Graph()
-    G.depth = {}
-    traverse(G, root, root)
-    G = count_graph(G)
-    # nx.write_edgelist(G,'ontology2vec/test/test.edgelist',data=['weight'])
+    depth = 1
+    traverse(G, root, depth, node_depth)
+    G = mapping_graph(G)
+    nx.write_edgelist(G,'thesis/test/test.edgelist',data=['weight'])
     return G
 
-def dir_o2graph(root):
-    G = nx.DiGraph()
-    G.depth = {}
-    traverse(G, root, root)
-    # G = count_graph(G)
-    return G
-
-def traverse(graph, root, node):
-    graph.depth[node] = node.shortest_path_distance(root)
+def traverse(graph, node, depth, node_depth):
+    node_depth[node] = depth
+    depth += 1
     for child in node.hyponyms():
-        graph.add_edge(node,child,weight=graph.depth[node]+1)
-        traverse(graph, root, child)
+        graph.add_edge(node, child, weight=depth)
+        traverse(graph, child, depth, node_depth)
 
 #绘图
 def graph_draw(graph):
@@ -34,7 +30,7 @@ def graph_draw(graph):
         )
     plt.show()
 
-def count_graph(graph):
+def mapping_graph(graph):
     list1 = list(graph.nodes) #结点
     nodes_nums = len(list1)
 
@@ -46,24 +42,12 @@ def count_graph(graph):
     G = nx.relabel_nodes(graph, mapping)
     #将对应关系保存为文件
     s = str(mapping).replace(",", "\n")
-    f = open('ontology2vec/test/test_mapping_dict.txt','w')
+    f = open('thesis/test/mapping_dic.txt','w')
     f.writelines(s)
     f.close()    
 
     return G
 
-# root = wn.synset('entity.n.01')
-# graph = o2graph(root)
-
-# print graph.edges
-# graph_draw(graph)
-
-#生成边列表或邻接表
-# nx.write_edgelist(graph,'str_entity.edgelist',data=['weight'])
-# nx.write_edgelist(G1,'test.edgelist',data=['color'])
-# nx.write_edgelist(G1,'test.edgelist',data=['color','weight'])
-# nx.write_edgelist(G1,"wordnet_test.edgelist")
-# nx.write_adjlist(graph,"str_entiy.adjlist")
 
 
 
