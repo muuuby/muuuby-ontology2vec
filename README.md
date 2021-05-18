@@ -1,2 +1,4 @@
 # ontology2vec
-ontology presentation learning based on WordNet
+ontology presentation learning 
+
+a random biased walk algorithm
